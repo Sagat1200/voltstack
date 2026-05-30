@@ -191,4 +191,122 @@ final class ValidatorTest extends TestCase
             ], $exception->errors());
         }
     }
+
+    public function test_validator_supports_accepted_url_date_and_alpha_dash_rules(): void
+    {
+        $validator = new Validator();
+
+        $validated = $validator->validate([
+            'terms' => 'yes',
+            'website' => 'https://voltstack.dev/docs',
+            'published_at' => '2026-05-29 10:30:00',
+            'slug' => 'voltstack_docs-v1',
+        ], [
+            'terms' => ['required', 'accepted'],
+            'website' => ['required', 'url'],
+            'published_at' => ['required', 'date'],
+            'slug' => ['required', 'alpha_dash'],
+        ]);
+
+        self::assertSame([
+            'terms' => 'yes',
+            'website' => 'https://voltstack.dev/docs',
+            'published_at' => '2026-05-29 10:30:00',
+            'slug' => 'voltstack_docs-v1',
+        ], $validated);
+    }
+
+    public function test_validator_throws_errors_for_accepted_url_date_and_alpha_dash_rules(): void
+    {
+        $validator = new Validator();
+
+        try {
+            $validator->validate([
+                'terms' => 'no',
+                'website' => 'not-a-url',
+                'published_at' => 'not-a-date',
+                'slug' => 'voltstack docs',
+            ], [
+                'terms' => ['required', 'accepted'],
+                'website' => ['required', 'url'],
+                'published_at' => ['required', 'date'],
+                'slug' => ['required', 'alpha_dash'],
+            ]);
+
+            self::fail('ValidationException was not thrown.');
+        } catch (ValidationException $exception) {
+            self::assertSame([
+                'terms' => ['The terms field must be accepted.'],
+                'website' => ['The website field must be a valid URL.'],
+                'published_at' => ['The published_at field must be a valid date.'],
+                'slug' => ['The slug field may only contain letters, numbers, dashes, and underscores.'],
+            ], $exception->errors());
+        }
+    }
+
+    public function test_validator_supports_nested_fields_and_wildcards(): void
+    {
+        $validator = new Validator();
+
+        $validated = $validator->validate([
+            'profile' => [
+                'name' => 'VoltStack',
+            ],
+            'items' => [
+                ['name' => 'core_api', 'price' => '10.5'],
+                ['name' => 'admin-ui', 'price' => 20],
+            ],
+        ], [
+            'profile.name' => ['required', 'string', 'min:3'],
+            'items.*.name' => ['required', 'alpha_dash'],
+            'items.*.price' => ['required', 'numeric'],
+        ]);
+
+        self::assertSame([
+            'profile' => [
+                'name' => 'VoltStack',
+            ],
+            'items' => [
+                ['name' => 'core_api', 'price' => '10.5'],
+                ['name' => 'admin-ui', 'price' => 20],
+            ],
+        ], $validated);
+    }
+
+    public function test_validator_supports_nested_messages_and_attributes_with_wildcards(): void
+    {
+        $validator = new Validator();
+
+        try {
+            $validator->validate([
+                'profile' => [],
+                'items' => [
+                    ['name' => 'core api', 'price' => '10.5'],
+                    ['price' => 'oops'],
+                ],
+            ], [
+                'profile.name' => ['required'],
+                'items.*.name' => ['required', 'alpha_dash'],
+                'items.*.price' => ['required', 'numeric'],
+            ], [
+                'profile.name.required' => 'Debes completar :attribute.',
+                'items.*.name.required' => 'Cada :attribute es obligatorio.',
+                'items.*.name.alpha_dash' => 'Cada :attribute solo admite letras, numeros, guiones y guion bajo.',
+                'items.*.price.numeric' => 'Cada :attribute debe ser numerico.',
+            ], [
+                'profile.name' => 'nombre del perfil',
+                'items.*.name' => 'nombre del item',
+                'items.*.price' => 'precio del item',
+            ]);
+
+            self::fail('ValidationException was not thrown.');
+        } catch (ValidationException $exception) {
+            self::assertSame([
+                'profile.name' => ['Debes completar nombre del perfil.'],
+                'items.0.name' => ['Cada nombre del item solo admite letras, numeros, guiones y guion bajo.'],
+                'items.1.name' => ['Cada nombre del item es obligatorio.'],
+                'items.1.price' => ['Cada precio del item debe ser numerico.'],
+            ], $exception->errors());
+        }
+    }
 }

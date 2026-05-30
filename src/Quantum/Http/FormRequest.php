@@ -56,7 +56,7 @@ abstract class FormRequest
             return $this->validated;
         }
 
-        return $this->validated[$key] ?? $default;
+        return $this->getArrayValue($this->validated, $key, $default);
     }
 
     public function safe(): array
@@ -67,15 +67,34 @@ abstract class FormRequest
     public function only(array|string $keys): array
     {
         $keys = $this->normalizeKeys($keys);
+        $result = [];
 
-        return array_intersect_key($this->safe(), array_flip($keys));
+        foreach ($keys as $key) {
+            if (!$this->hasArrayValue($this->safe(), $key)) {
+                continue;
+            }
+
+            if (array_key_exists($key, $this->safe())) {
+                $result[$key] = $this->safe()[$key];
+                continue;
+            }
+
+            $this->setArrayValue($result, $key, $this->getArrayValue($this->safe(), $key));
+        }
+
+        return $result;
     }
 
     public function except(array|string $keys): array
     {
         $keys = $this->normalizeKeys($keys);
+        $result = $this->safe();
 
-        return array_diff_key($this->safe(), array_flip($keys));
+        foreach ($keys as $key) {
+            $this->forgetArrayValue($result, $key);
+        }
+
+        return $result;
     }
 
     public function all(): array
@@ -210,5 +229,99 @@ abstract class FormRequest
     protected function normalizeKeys(array|string $keys): array
     {
         return is_array($keys) ? $keys : [$keys];
+    }
+
+    protected function getArrayValue(array $data, string $key, mixed $default = null): mixed
+    {
+        if (array_key_exists($key, $data)) {
+            return $data[$key];
+        }
+
+        $segments = explode('.', $key);
+        $current = $data;
+
+        foreach ($segments as $segment) {
+            if (!is_array($current) || !array_key_exists($segment, $current)) {
+                return $default;
+            }
+
+            $current = $current[$segment];
+        }
+
+        return $current;
+    }
+
+    protected function hasArrayValue(array $data, string $key): bool
+    {
+        if (array_key_exists($key, $data)) {
+            return true;
+        }
+
+        $segments = explode('.', $key);
+        $current = $data;
+
+        foreach ($segments as $segment) {
+            if (!is_array($current) || !array_key_exists($segment, $current)) {
+                return false;
+            }
+
+            $current = $current[$segment];
+        }
+
+        return true;
+    }
+
+    protected function setArrayValue(array &$data, string $key, mixed $value): void
+    {
+        $segments = explode('.', $key);
+        $current = &$data;
+
+        foreach ($segments as $segment) {
+            if (!isset($current[$segment]) || !is_array($current[$segment])) {
+                $current[$segment] = [];
+            }
+
+            $current = &$current[$segment];
+        }
+
+        $current = $value;
+    }
+
+    protected function forgetArrayValue(array &$data, string $key): void
+    {
+        if (array_key_exists($key, $data)) {
+            unset($data[$key]);
+
+            return;
+        }
+
+        $this->forgetArrayValueRecursive($data, explode('.', $key));
+    }
+
+    protected function forgetArrayValueRecursive(array &$data, array $segments): bool
+    {
+        $segment = array_shift($segments);
+
+        if ($segment === null || !array_key_exists($segment, $data)) {
+            return false;
+        }
+
+        if ($segments === []) {
+            unset($data[$segment]);
+
+            return $data === [];
+        }
+
+        if (!is_array($data[$segment])) {
+            return false;
+        }
+
+        $shouldForgetChild = $this->forgetArrayValueRecursive($data[$segment], $segments);
+
+        if ($shouldForgetChild) {
+            unset($data[$segment]);
+        }
+
+        return $data === [];
     }
 }

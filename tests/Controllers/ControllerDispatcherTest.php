@@ -144,12 +144,74 @@ final class ControllerDispatcherTest extends TestCase
                 'name' => 'VoltStack',
             ],
             'only' => [
-                'team' => 'core',
                 'email' => 'user@example.com',
+                'team' => 'core',
             ],
             'except' => [
                 'team' => 'core',
                 'email' => 'user@example.com',
+            ],
+        ], $result);
+    }
+
+    public function test_form_request_validated_supports_dot_notation(): void
+    {
+        $app = $this->createApplication();
+        $route = new Route(['POST'], '/profiles/nested', NestedFormRequestController::class . '@store');
+        $resolved = new ResolvedRoute($route, []);
+        $request = Request::create('POST', '/profiles/nested', [], [
+            'profile' => [
+                'name' => 'VoltStack',
+            ],
+            'items' => [
+                ['name' => 'core_api'],
+                ['name' => 'admin-ui'],
+            ],
+        ])->withAttribute('route', $route);
+
+        $result = $app->controllers()->dispatchResolvedRoute($resolved, $request);
+
+        self::assertSame([
+            'profile_name' => 'VoltStack',
+            'first_item_name' => 'core_api',
+            'missing' => 'fallback',
+        ], $result);
+    }
+
+    public function test_form_request_only_and_except_support_dot_notation(): void
+    {
+        $app = $this->createApplication();
+        $route = new Route(['POST'], '/profiles/nested/subset', NestedSubsetFormRequestController::class . '@store');
+        $resolved = new ResolvedRoute($route, []);
+        $request = Request::create('POST', '/profiles/nested/subset', [], [
+            'profile' => [
+                'name' => 'VoltStack',
+            ],
+            'items' => [
+                ['name' => 'core_api'],
+                ['name' => 'admin-ui'],
+            ],
+        ])->withAttribute('route', $route);
+
+        $result = $app->controllers()->dispatchResolvedRoute($resolved, $request);
+
+        self::assertSame([
+            'only' => [
+                'profile' => [
+                    'name' => 'VoltStack',
+                ],
+                'items' => [
+                    [
+                        'name' => 'core_api',
+                    ],
+                ],
+            ],
+            'except' => [
+                'items' => [
+                    [
+                        'name' => 'core_api',
+                    ],
+                ],
             ],
         ], $result);
     }
@@ -268,6 +330,40 @@ final class SafeStoreUserRequest extends FormRequest
             'email' => ['required', 'email'],
             'name' => ['required', 'string', 'min:3'],
             'team' => ['required', 'string'],
+        ];
+    }
+}
+
+final class NestedFormRequestController
+{
+    public function store(NestedStoreRequest $request): array
+    {
+        return [
+            'profile_name' => $request->validated('profile.name'),
+            'first_item_name' => $request->validated('items.0.name'),
+            'missing' => $request->validated('items.5.name', 'fallback'),
+        ];
+    }
+}
+
+final class NestedSubsetFormRequestController
+{
+    public function store(NestedStoreRequest $request): array
+    {
+        return [
+            'only' => $request->only(['profile.name', 'items.0.name']),
+            'except' => $request->except(['profile.name', 'items.1.name']),
+        ];
+    }
+}
+
+final class NestedStoreRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'profile.name' => ['required', 'string'],
+            'items.*.name' => ['required', 'alpha_dash'],
         ];
     }
 }
