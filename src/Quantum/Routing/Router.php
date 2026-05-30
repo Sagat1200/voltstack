@@ -11,12 +11,12 @@ final class Router
     /** @var array<int, Route> */
     protected array $routes = [];
 
-    /** @var array<int, array{prefix?: string, middleware?: array<int, mixed>}> */
+    /** @var array<int, array{prefix?: string, name?: string, middleware?: array<int, mixed>}> */
     protected array $groupStack = [];
 
     public function add(array $methods, string $uri, mixed $handler): Route
     {
-        $route = new Route($methods, $this->applyGroupPrefix($uri), $handler);
+        $route = new Route($methods, $this->applyGroupPrefix($uri), $handler, $this->currentGroupName());
         $groupMiddleware = $this->currentGroupMiddleware();
 
         if ($groupMiddleware !== []) {
@@ -64,7 +64,7 @@ final class Router
     }
 
     /**
-     * @param array{prefix?: string, middleware?: array<int, mixed>|mixed} $attributes
+     * @param array{prefix?: string, name?: string, middleware?: array<int, mixed>|mixed} $attributes
      */
     public function group(array $attributes, callable $callback): void
     {
@@ -87,6 +87,11 @@ final class Router
         return (new RouteGroupRegistrar($this))->middleware($middleware);
     }
 
+    public function name(string $name): RouteGroupRegistrar
+    {
+        return (new RouteGroupRegistrar($this))->name($name);
+    }
+
     public function resolve(Request $request): ?ResolvedRoute
     {
         foreach ($this->routes as $route) {
@@ -107,6 +112,19 @@ final class Router
     public function routes(): array
     {
         return $this->routes;
+    }
+
+    public function route(string $name, array $parameters = [], array $query = []): string
+    {
+        foreach ($this->routes as $route) {
+            if ($route->name() === $name) {
+                return $route->url($parameters, $query);
+            }
+        }
+
+        throw new \RuntimeException(
+            sprintf('Route [%s] is not defined.', $name)
+        );
     }
 
     protected function applyGroupPrefix(string $uri): string
@@ -133,9 +151,24 @@ final class Router
         return $middleware;
     }
 
+    protected function currentGroupName(): string
+    {
+        $segments = [];
+
+        foreach ($this->groupStack as $group) {
+            if (isset($group['name'])) {
+                $segments[] = trim($group['name'], '.');
+            }
+        }
+
+        $segments = array_values(array_filter($segments, static fn(string $segment): bool => $segment !== ''));
+
+        return implode('.', $segments);
+    }
+
     /**
-     * @param array{prefix?: string, middleware?: array<int, mixed>|mixed} $attributes
-     * @return array{prefix?: string, middleware?: array<int, mixed>}
+     * @param array{prefix?: string, name?: string, middleware?: array<int, mixed>|mixed} $attributes
+     * @return array{prefix?: string, name?: string, middleware?: array<int, mixed>}
      */
     protected function normalizeGroupAttributes(array $attributes): array
     {
@@ -143,6 +176,12 @@ final class Router
 
         if (isset($attributes['prefix'])) {
             $normalized['prefix'] = (string) $attributes['prefix'];
+        }
+
+        if (isset($attributes['name'])) {
+            $normalized['name'] = (string) $attributes['name'];
+        } elseif (isset($attributes['as'])) {
+            $normalized['name'] = (string) $attributes['as'];
         }
 
         if (array_key_exists('middleware', $attributes)) {

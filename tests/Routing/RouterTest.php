@@ -66,4 +66,45 @@ final class RouterTest extends TestCase
         self::assertSame('/admin/users/{id}', $resolved->route()->uri());
         self::assertSame('10', $resolved->parameters()['id']);
     }
+
+    public function test_router_generates_url_for_named_route(): void
+    {
+        $router = new Router();
+        $router->get('/users/{id}', static fn () => 'ok')->name('users.show');
+
+        $url = $router->route('users.show', ['id' => 42], ['tab' => 'profile']);
+
+        self::assertSame('/users/42?tab=profile', $url);
+    }
+
+    public function test_router_applies_group_name_prefixes_to_routes(): void
+    {
+        $router = new Router();
+
+        $router
+            ->prefix('api')
+            ->name('api')
+            ->group(function (Router $router): void {
+                $router
+                    ->prefix('v1')
+                    ->name('v1')
+                    ->group(function (Router $router): void {
+                        $router->get('/users/{id}', static fn () => 'ok')->name('show');
+                    });
+            });
+
+        $url = $router->route('api.v1.show', ['id' => 5]);
+
+        self::assertSame('/api/v1/users/5', $url);
+    }
+
+    public function test_router_throws_for_unknown_named_route(): void
+    {
+        $router = new Router();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Route [missing.route] is not defined.');
+
+        $router->route('missing.route');
+    }
 }

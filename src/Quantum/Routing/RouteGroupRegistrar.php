@@ -6,7 +6,7 @@ namespace Quantum\Routing;
 
 final class RouteGroupRegistrar
 {
-    /** @var array{prefix?: string, middleware?: array<int, mixed>} */
+    /** @var array{prefix?: string, name?: string, middleware?: array<int, mixed>} */
     protected array $attributes = [];
 
     public function __construct(
@@ -34,6 +34,20 @@ final class RouteGroupRegistrar
         }
 
         $clone->attributes['middleware'] = [...$current, ...$middleware];
+
+        return $clone;
+    }
+
+    public function name(string $name): self
+    {
+        $clone = clone $this;
+        $current = $clone->attributes['name'] ?? '';
+        $segments = array_filter([
+            trim($current, '.'),
+            trim($name, '.'),
+        ], static fn(string $segment): bool => $segment !== '');
+
+        $clone->attributes['name'] = implode('.', $segments);
 
         return $clone;
     }

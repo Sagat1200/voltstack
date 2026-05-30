@@ -8,6 +8,8 @@ final class Route
 {
     protected ?string $name = null;
 
+    protected string $namePrefix = '';
+
     /** @var array<int, mixed> */
     protected array $middleware = [];
 
@@ -15,12 +17,14 @@ final class Route
         protected array $methods,
         protected string $uri,
         protected mixed $handler,
+        ?string $namePrefix = null,
     ) {
         $this->methods = array_map(
             static fn(string $method): string => strtoupper($method),
             $methods
         );
         $this->uri = $this->normalizeUri($uri);
+        $this->namePrefix = $this->normalizeNamePrefix($namePrefix);
     }
 
     public function methods(): array
@@ -44,7 +48,7 @@ final class Route
             return $this->name;
         }
 
-        $this->name = $name;
+        $this->name = $this->qualifyName($name);
 
         return $this;
     }
@@ -96,11 +100,67 @@ final class Route
         return $parameters;
     }
 
+    public function url(array $parameters = [], array $query = []): string
+    {
+        $uri = preg_replace_callback(
+            '/\{([A-Za-z_][A-Za-z0-9_]*)\}/',
+            static function (array $matches) use (&$parameters): string {
+                $key = $matches[1];
+
+                if (!array_key_exists($key, $parameters)) {
+                    throw new \InvalidArgumentException(
+                        sprintf('Missing route parameter [%s].', $key)
+                    );
+                }
+
+                $value = $parameters[$key];
+                unset($parameters[$key]);
+
+                return rawurlencode((string) $value);
+            },
+            $this->uri
+        );
+
+        if (!is_string($uri)) {
+            throw new \RuntimeException('Unable to generate route URL.');
+        }
+
+        if ($query !== []) {
+            $queryString = http_build_query($query);
+
+            if ($queryString !== '') {
+                $uri .= '?' . $queryString;
+            }
+        }
+
+        return $uri;
+    }
+
     protected function normalizeUri(string $uri): string
     {
         $normalized = '/' . trim($uri, '/');
 
         return $normalized === '//' ? '/' : $normalized;
+    }
+
+    protected function normalizeNamePrefix(?string $namePrefix): string
+    {
+        if ($namePrefix === null || $namePrefix === '') {
+            return '';
+        }
+
+        return rtrim($namePrefix, '.') . '.';
+    }
+
+    protected function qualifyName(string $name): string
+    {
+        $name = trim($name, '.');
+
+        if ($this->namePrefix === '') {
+            return $name;
+        }
+
+        return $this->namePrefix . $name;
     }
 
     protected function compilePattern(): string

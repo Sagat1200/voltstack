@@ -9,6 +9,7 @@ use Quantum\Bootstrap\BootstrapManager;
 use Quantum\Bootstrap\ProviderRepository;
 use Quantum\Config\ConfigRepository;
 use Quantum\Container\Container;
+use Quantum\Controllers\ControllerDispatcher;
 use Quantum\Exceptions\Contracts\ExceptionHandlerInterface;
 use Quantum\Exceptions\ExceptionHandler;
 use Quantum\Http\ResponseFactory;
@@ -44,6 +45,10 @@ final class Application
         $this->container->singleton(MiddlewareRegistry::class, MiddlewareRegistry::class);
         $this->container->singleton(Validator::class, Validator::class);
         $this->container->singleton(ValidatorInterface::class, Validator::class);
+        $this->container->singleton(
+            ControllerDispatcher::class,
+            static fn(Container $container, array $parameters = []): ControllerDispatcher => new ControllerDispatcher($container)
+        );
         $this->container->singleton(ActionDispatcher::class, static fn(Container $container, array $parameters = []): ActionDispatcher => new ActionDispatcher(
             $container,
             $container->make(ValidatorInterface::class),
@@ -64,6 +69,7 @@ final class Application
                 $container->make(ResponseFactory::class),
                 $container->make(ExceptionHandlerInterface::class),
                 $container->make(MiddlewareRegistry::class),
+                $container->make(ControllerDispatcher::class),
             )
         );
         $this->container->instance('router', $this->container->make(Router::class));
@@ -71,6 +77,7 @@ final class Application
         $this->container->instance('response.factory', $this->container->make(ResponseFactory::class));
         $this->container->instance('exception.handler', $this->container->make(ExceptionHandlerInterface::class));
         $this->container->instance('middleware.registry', $this->container->make(MiddlewareRegistry::class));
+        $this->container->instance('controller.dispatcher', $this->container->make(ControllerDispatcher::class));
         $this->container->instance('validator', $this->container->make(ValidatorInterface::class));
         $this->container->instance('actions', $this->container->make(ActionDispatcher::class));
     }
@@ -122,6 +129,11 @@ final class Application
         return $this->container->make(Router::class);
     }
 
+    public function route(string $name, array $parameters = [], array $query = []): string
+    {
+        return $this->router()->route($name, $parameters, $query);
+    }
+
     public function kernel(): HttpKernel
     {
         return $this->container->make(HttpKernel::class);
@@ -130,6 +142,11 @@ final class Application
     public function responses(): ResponseFactory
     {
         return $this->container->make(ResponseFactory::class);
+    }
+
+    public function controllers(): ControllerDispatcher
+    {
+        return $this->container->make(ControllerDispatcher::class);
     }
 
     public function exceptions(): ExceptionHandlerInterface

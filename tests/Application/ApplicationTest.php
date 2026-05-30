@@ -6,6 +6,7 @@ namespace VoltStack\Framework\Tests\Application;
 
 use Quantum\Bootstrap\ServiceProvider;
 use Quantum\Config\ConfigRepository;
+use Quantum\Controllers\ControllerDispatcher;
 use VoltStack\Framework\Tests\TestCase;
 use VoltStack\Platform\Application;
 
@@ -45,6 +46,22 @@ final class ApplicationTest extends TestCase
         self::assertStringEndsWith('config', $app->configPath());
         self::assertStringEndsWith('bootstrap', $app->bootstrapPath());
         self::assertSame($app->basePath('bootstrap'), $app->basePath() . DIRECTORY_SEPARATOR . 'bootstrap');
+    }
+
+    public function test_application_generates_named_route_urls(): void
+    {
+        $app = $this->createApplication();
+        $app->router()->get('/posts/{slug}', static fn () => 'ok')->name('posts.show');
+
+        self::assertSame('/posts/hello-world', $app->route('posts.show', ['slug' => 'hello-world']));
+        self::assertSame('/posts/hello-world?page=2', route('posts.show', ['slug' => 'hello-world'], ['page' => 2]));
+    }
+
+    public function test_application_exposes_controller_dispatcher(): void
+    {
+        $app = $this->createApplication();
+
+        self::assertInstanceOf(ControllerDispatcher::class, $app->controllers());
     }
 }
 

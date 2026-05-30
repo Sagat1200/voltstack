@@ -59,3 +59,10 @@ if (!function_exists('base_path')) {
         return app()->basePath($path);
     }
 }
+
+if (!function_exists('route')) {
+    function route(string $name, array $parameters = [], array $query = []): string
+    {
+        return app()->route($name, $parameters, $query);
+    }
+}
