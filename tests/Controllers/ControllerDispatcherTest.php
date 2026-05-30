@@ -143,6 +143,14 @@ final class ControllerDispatcherTest extends TestCase
                 'email' => 'user@example.com',
                 'name' => 'VoltStack',
             ],
+            'safe_only' => [
+                'email' => 'user@example.com',
+                'team' => 'core',
+            ],
+            'safe_except' => [
+                'team' => 'core',
+                'email' => 'user@example.com',
+            ],
             'only' => [
                 'email' => 'user@example.com',
                 'team' => 'core',
@@ -196,6 +204,36 @@ final class ControllerDispatcherTest extends TestCase
         $result = $app->controllers()->dispatchResolvedRoute($resolved, $request);
 
         self::assertSame([
+            'safe_all' => [
+                'profile' => [
+                    'name' => 'VoltStack',
+                ],
+                'items' => [
+                    [
+                        'name' => 'core_api',
+                    ],
+                    [
+                        'name' => 'admin-ui',
+                    ],
+                ],
+            ],
+            'safe_only' => [
+                'profile' => [
+                    'name' => 'VoltStack',
+                ],
+                'items' => [
+                    [
+                        'name' => 'core_api',
+                    ],
+                ],
+            ],
+            'safe_except' => [
+                'items' => [
+                    [
+                        'name' => 'core_api',
+                    ],
+                ],
+            ],
             'only' => [
                 'profile' => [
                     'name' => 'VoltStack',
@@ -315,7 +353,9 @@ final class SafeFormRequestController
     public function store(SafeStoreUserRequest $request): array
     {
         return [
-            'safe' => $request->safe(),
+            'safe' => $request->safe()->all(),
+            'safe_only' => $request->safe()->only(['email', 'team']),
+            'safe_except' => $request->safe()->except('name'),
             'only' => $request->only(['email', 'team']),
             'except' => $request->except('name'),
         ];
@@ -351,6 +391,9 @@ final class NestedSubsetFormRequestController
     public function store(NestedStoreRequest $request): array
     {
         return [
+            'safe_all' => $request->safe()->all(),
+            'safe_only' => $request->safe()->only(['profile.name', 'items.0.name']),
+            'safe_except' => $request->safe()->except(['profile.name', 'items.1.name']),
             'only' => $request->only(['profile.name', 'items.0.name']),
             'except' => $request->except(['profile.name', 'items.1.name']),
         ];
