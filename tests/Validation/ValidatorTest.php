@@ -51,4 +51,31 @@ final class ValidatorTest extends TestCase
             self::assertArrayHasKey('password', $exception->errors());
         }
     }
+
+    public function test_validator_supports_custom_messages_and_attributes(): void
+    {
+        $validator = new Validator();
+
+        try {
+            $validator->validate([
+                'email' => 'not-an-email',
+            ], [
+                'email' => ['required', 'email'],
+                'name' => ['required'],
+            ], [
+                'email.email' => 'Debes indicar un :attribute valido.',
+                'required' => 'El campo :attribute es obligatorio.',
+            ], [
+                'email' => 'correo electronico',
+                'name' => 'nombre completo',
+            ]);
+
+            self::fail('ValidationException was not thrown.');
+        } catch (ValidationException $exception) {
+            self::assertSame([
+                'email' => ['Debes indicar un correo electronico valido.'],
+                'name' => ['El campo nombre completo es obligatorio.'],
+            ], $exception->errors());
+        }
+    }
 }

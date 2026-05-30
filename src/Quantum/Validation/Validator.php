@@ -8,7 +8,12 @@ use Quantum\Validation\Contracts\ValidatorInterface;
 
 final class Validator implements ValidatorInterface
 {
-    public function validate(array $data, array $rules): array
+    public function validate(
+        array $data,
+        array $rules,
+        array $messages = [],
+        array $attributes = []
+    ): array
     {
         $errors = [];
 
@@ -19,9 +24,16 @@ final class Validator implements ValidatorInterface
 
             foreach ($fieldRules as $rule) {
                 [$name, $argument] = $this->parseRule($rule);
+                $ruleName = $this->normalizeRuleName($name);
 
                 if ($name === 'required' && (!$present || $value === null || $value === '' || $value === [])) {
-                    $errors[$field][] = sprintf('The %s field is required.', $field);
+                    $errors[$field][] = $this->messageFor(
+                        $field,
+                        $name,
+                        $ruleName,
+                        $messages,
+                        $attributes,
+                    );
                     continue;
                 }
 
@@ -30,22 +42,47 @@ final class Validator implements ValidatorInterface
                 }
 
                 if ($name === 'string' && !is_string($value)) {
-                    $errors[$field][] = sprintf('The %s field must be a string.', $field);
+                    $errors[$field][] = $this->messageFor(
+                        $field,
+                        $name,
+                        $ruleName,
+                        $messages,
+                        $attributes,
+                    );
                     continue;
                 }
 
                 if (($name === 'int' || $name === 'integer') && filter_var($value, FILTER_VALIDATE_INT) === false) {
-                    $errors[$field][] = sprintf('The %s field must be an integer.', $field);
+                    $errors[$field][] = $this->messageFor(
+                        $field,
+                        $name,
+                        $ruleName,
+                        $messages,
+                        $attributes,
+                    );
                     continue;
                 }
 
                 if ($name === 'email' && filter_var($value, FILTER_VALIDATE_EMAIL) === false) {
-                    $errors[$field][] = sprintf('The %s field must be a valid email address.', $field);
+                    $errors[$field][] = $this->messageFor(
+                        $field,
+                        $name,
+                        $ruleName,
+                        $messages,
+                        $attributes,
+                    );
                     continue;
                 }
 
                 if ($name === 'min' && $argument !== null && !$this->passesMinRule($value, (int) $argument)) {
-                    $errors[$field][] = sprintf('The %s field must be at least %d.', $field, (int) $argument);
+                    $errors[$field][] = $this->messageFor(
+                        $field,
+                        $name,
+                        $ruleName,
+                        $messages,
+                        $attributes,
+                        ['min' => (string) (int) $argument],
+                    );
                 }
             }
         }
@@ -75,6 +112,67 @@ final class Validator implements ValidatorInterface
         [$name, $argument] = explode(':', $rule, 2);
 
         return [$name, $argument];
+    }
+
+    protected function normalizeRuleName(string $rule): string
+    {
+        return $rule === 'int' ? 'integer' : $rule;
+    }
+
+    protected function messageFor(
+        string $field,
+        string $rule,
+        string $normalizedRule,
+        array $messages,
+        array $attributes,
+        array $replacements = []
+    ): string {
+        $template = $this->findMessageTemplate($field, $rule, $normalizedRule, $messages)
+            ?? $this->defaultMessageTemplate($normalizedRule);
+
+        $replacements = array_replace([
+            'attribute' => $attributes[$field] ?? $field,
+        ], $replacements);
+
+        foreach ($replacements as $key => $value) {
+            $template = str_replace(':' . $key, (string) $value, $template);
+        }
+
+        return $template;
+    }
+
+    protected function findMessageTemplate(
+        string $field,
+        string $rule,
+        string $normalizedRule,
+        array $messages
+    ): ?string {
+        $keys = [
+            $field . '.' . $rule,
+            $field . '.' . $normalizedRule,
+            $rule,
+            $normalizedRule,
+        ];
+
+        foreach (array_values(array_unique($keys)) as $key) {
+            if (array_key_exists($key, $messages)) {
+                return $messages[$key];
+            }
+        }
+
+        return null;
+    }
+
+    protected function defaultMessageTemplate(string $rule): string
+    {
+        return match ($rule) {
+            'required' => 'The :attribute field is required.',
+            'string' => 'The :attribute field must be a string.',
+            'integer' => 'The :attribute field must be an integer.',
+            'email' => 'The :attribute field must be a valid email address.',
+            'min' => 'The :attribute field must be at least :min.',
+            default => 'The :attribute field is invalid.',
+        };
     }
 
     protected function passesMinRule(mixed $value, int $minimum): bool

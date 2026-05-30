@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace VoltStack\Framework\Tests\Controllers;
 
 use Quantum\Controllers\ControllerDispatcher;
+use Quantum\Http\FormRequest;
 use Quantum\Http\Request;
 use Quantum\Routing\ResolvedRoute;
 use Quantum\Routing\Route;
@@ -75,6 +76,51 @@ final class ControllerDispatcherTest extends TestCase
 
         self::assertSame('type:35', $result);
     }
+
+    public function test_dispatcher_injects_form_request_with_validated_data(): void
+    {
+        $app = $this->createApplication();
+        $route = new Route(['POST'], '/teams/{team}', FormRequestController::class . '@store');
+        $resolved = new ResolvedRoute($route, ['team' => 'core']);
+        $request = Request::create('POST', '/teams/core', [], [
+            'email' => 'user@example.com',
+            'name' => 'VoltStack',
+        ])
+            ->withAttribute('route', $route)
+            ->withAttribute('route_parameters', ['team' => 'core'])
+            ->withAttribute('team', 'core');
+
+        $result = $app->controllers()->dispatchResolvedRoute($resolved, $request);
+
+        self::assertSame([
+            'email' => 'user@example.com',
+            'name' => 'VoltStack',
+            'team' => 'core',
+        ], $result);
+    }
+
+    public function test_form_request_runs_prepare_and_passed_validation_hooks(): void
+    {
+        HookedStoreUserRequest::$prepared = false;
+        HookedStoreUserRequest::$passed = false;
+
+        $app = $this->createApplication();
+        $route = new Route(['POST'], '/hooked', HookedFormRequestController::class . '@store');
+        $resolved = new ResolvedRoute($route, []);
+        $request = Request::create('POST', '/hooked', [], [
+            'email' => 'USER@EXAMPLE.COM',
+            'name' => 'Vo',
+        ])->withAttribute('route', $route);
+
+        $result = $app->controllers()->dispatchResolvedRoute($resolved, $request);
+
+        self::assertTrue(HookedStoreUserRequest::$prepared);
+        self::assertTrue(HookedStoreUserRequest::$passed);
+        self::assertSame([
+            'email' => 'user@example.com',
+            'name' => 'VoltStack',
+        ], $result);
+    }
 }
 
 final class DispatcherController
@@ -107,5 +153,65 @@ final class BoundUser
         public string $id,
         public string $source,
     ) {
+    }
+}
+
+final class FormRequestController
+{
+    public function store(StoreUserRequest $request): array
+    {
+        return [
+            'email' => $request->validated('email'),
+            'name' => $request->validated('name'),
+            'team' => $request->routeParameter('team'),
+        ];
+    }
+}
+
+final class StoreUserRequest extends FormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'email' => ['required', 'email'],
+            'name' => ['required', 'string', 'min:3'],
+        ];
+    }
+}
+
+final class HookedFormRequestController
+{
+    public function store(HookedStoreUserRequest $request): array
+    {
+        return $request->validated();
+    }
+}
+
+final class HookedStoreUserRequest extends FormRequest
+{
+    public static bool $prepared = false;
+    public static bool $passed = false;
+
+    public function rules(): array
+    {
+        return [
+            'email' => ['required', 'email'],
+            'name' => ['required', 'string', 'min:3'],
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        self::$prepared = true;
+
+        $this->merge([
+            'email' => strtolower((string) $this->input('email', '')),
+            'name' => 'VoltStack',
+        ]);
+    }
+
+    protected function passedValidation(): void
+    {
+        self::$passed = true;
     }
 }

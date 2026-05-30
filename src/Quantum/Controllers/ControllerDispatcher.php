@@ -6,10 +6,12 @@ namespace Quantum\Controllers;
 
 use Closure;
 use Psr\Container\ContainerInterface;
+use Quantum\Http\FormRequest;
 use Quantum\Http\Request;
 use Quantum\Routing\ResolvedRoute;
 use Quantum\Routing\Route;
 use Quantum\Routing\RouteBindingRegistry;
+use Quantum\Validation\Contracts\ValidatorInterface;
 use ReflectionFunction;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -21,6 +23,7 @@ final class ControllerDispatcher
     public function __construct(
         protected ContainerInterface $container,
         protected ?RouteBindingRegistry $bindings = null,
+        protected ?ValidatorInterface $validator = null,
     ) {}
 
     public function dispatchResolvedRoute(ResolvedRoute $resolved, Request $request): mixed
@@ -109,6 +112,10 @@ final class ControllerDispatcher
                 return $request->attribute('route');
             }
 
+            if (is_a($typeName, FormRequest::class, true)) {
+                return $typeName::from($request, $this->validator());
+            }
+
             return $this->container->get($typeName);
         }
 
@@ -135,5 +142,21 @@ final class ControllerDispatcher
         }
 
         return new RouteBindingRegistry();
+    }
+
+    protected function validator(): ValidatorInterface
+    {
+        if ($this->validator instanceof ValidatorInterface) {
+            return $this->validator;
+        }
+
+        if ($this->container->has(ValidatorInterface::class)) {
+            /** @var ValidatorInterface $validator */
+            $validator = $this->container->get(ValidatorInterface::class);
+
+            return $validator;
+        }
+
+        throw new RuntimeException('ValidatorInterface is not available for FormRequest resolution.');
     }
 }

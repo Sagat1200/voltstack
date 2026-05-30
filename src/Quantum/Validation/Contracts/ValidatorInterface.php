@@ -11,5 +11,10 @@ interface ValidatorInterface
     /**
      * @throws ValidationException
      */
-    public function validate(array $data, array $rules): array;
+    public function validate(
+        array $data,
+        array $rules,
+        array $messages = [],
+        array $attributes = []
+    ): array;
 }

@@ -52,6 +52,7 @@ final class Application
             static fn(Container $container, array $parameters = []): ControllerDispatcher => new ControllerDispatcher(
                 $container,
                 $container->make(RouteBindingRegistry::class),
+                $container->make(ValidatorInterface::class),
             )
         );
         $this->container->singleton(ActionDispatcher::class, static fn(Container $container, array $parameters = []): ActionDispatcher => new ActionDispatcher(
