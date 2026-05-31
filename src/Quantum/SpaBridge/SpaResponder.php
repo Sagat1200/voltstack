@@ -10,6 +10,8 @@ use Quantum\SpaBridge\Context\Contracts\SharedContextResolverInterface;
 use Quantum\SpaBridge\Context\SharedContextResolver;
 use Quantum\SpaBridge\Contracts\SpaPayloadInterface;
 use Quantum\SpaBridge\Contracts\SpaResponderInterface;
+use Quantum\SpaBridge\Pages\Contracts\PageResolverInterface;
+use Quantum\SpaBridge\Pages\PageResolver;
 use Quantum\SpaBridge\Payloads\SpaActionPayload;
 use Quantum\SpaBridge\Payloads\SpaErrorPayload;
 use Quantum\SpaBridge\Payloads\SpaRedirectPayload;
@@ -20,11 +22,14 @@ final class SpaResponder implements SpaResponderInterface
     public function __construct(
         protected ResponseFactory $responses = new ResponseFactory(),
         protected SharedContextResolverInterface $contextResolver = new SharedContextResolver(),
+        protected PageResolverInterface $pages = new PageResolver(),
     ) {}
 
     public function page(string $component, array $props = [], array $meta = []): Response
     {
-        return $this->payload((new SpaPage($component, $props, $meta, $this->contextResolver->resolve()))->toPayload());
+        return $this->payload(
+            $this->pages->resolve($component, $props, $meta, $this->contextResolver->resolve())->toPage()->toPayload()
+        );
     }
 
     public function action(array $data = [], array $meta = [], int $status = 200, ?string $message = null): Response

@@ -14,24 +14,29 @@ use Quantum\SpaBridge\Contracts\SpaBridgeInterface;
 use Quantum\SpaBridge\Contracts\SpaPageInterface;
 use Quantum\SpaBridge\Contracts\SpaPayloadInterface;
 use Quantum\SpaBridge\Contracts\SpaResponderInterface;
+use Quantum\SpaBridge\Pages\Contracts\PageResolverInterface;
+use Quantum\SpaBridge\Pages\PageResolver;
 
 final class SpaBridge implements SpaBridgeInterface
 {
     protected SpaResponderInterface $responder;
     protected SharedContextResolverInterface $contextResolver;
+    protected PageResolverInterface $pages;
 
     public function __construct(
         ?SpaResponderInterface $responder = null,
         protected SharedContextRegistryInterface $contextRegistry = new SharedContextRegistry(),
         ?SharedContextResolverInterface $contextResolver = null,
+        ?PageResolverInterface $pages = null,
     ) {
         $this->contextResolver = $contextResolver ?? new SharedContextResolver($this->contextRegistry);
+        $this->pages = $pages ?? new PageResolver();
         $this->responder = $responder ?? new SpaResponder(contextResolver: $this->contextResolver);
     }
 
     public function page(string $component, array $props = [], array $meta = []): SpaPageInterface
     {
-        return new SpaPage($component, $props, $meta, $this->context());
+        return $this->pages->resolve($component, $props, $meta, $this->context())->toPage();
     }
 
     public function payload(SpaPayloadInterface $payload): Response

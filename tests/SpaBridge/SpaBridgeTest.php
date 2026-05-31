@@ -69,7 +69,7 @@ final class SpaBridgeTest extends TestCase
         $response = $bridge->payload($page->toPayload());
 
         self::assertSame('Users/Index', $page->component());
-        self::assertSame(['title' => 'Users'], $page->meta());
+        self::assertSame('Users', $page->meta()['title']);
         self::assertSame(200, $response->status());
         self::assertStringContainsString('"type":"spa.page"', $response->content());
         self::assertStringContainsString('"component":"Users\/Index"', $response->content());

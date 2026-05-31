@@ -29,7 +29,7 @@ final class SpaHttpIntegrationTest extends TestCase
         self::assertSame('application/json', $pageResponse->header('Content-Type'));
         self::assertSame('spa.page', $pageData['type']);
         self::assertSame('Dashboard/Home', $pageData['component']);
-        self::assertSame(['layout' => 'main'], $pageData['meta']);
+        self::assertSame('main', $pageData['meta']['layout']);
         self::assertSame([
             'tenant' => [
                 'id' => 77,
@@ -60,6 +60,9 @@ final class SpaHttpIntegrationTest extends TestCase
         self::assertSame('spa.page', $data['type']);
         self::assertSame('Users/Index', $data['component']);
         self::assertSame(['users' => [['id' => 1]]], $data['props']);
+        self::assertSame('Users', $data['meta']['title']);
+        self::assertSame('/spa/users', $data['meta']['navigation']['url']);
+        self::assertSame('/spa/users', $data['meta']['navigation']['path']);
         self::assertSame([
             'tenant' => [
                 'id' => 77,

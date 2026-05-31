@@ -35,7 +35,9 @@ final class SpaControllerTest extends TestCase
         self::assertSame('1.0.0', $data['version']);
         self::assertSame('Dashboard/Home', $data['component']);
         self::assertSame(['stats' => ['users' => 10]], $data['props']);
-        self::assertSame(['layout' => 'main'], $data['meta']);
+        self::assertSame('main', $data['meta']['layout']);
+        self::assertSame('/spa/dashboard', $data['meta']['navigation']['url']);
+        self::assertSame('/spa/dashboard', $data['meta']['navigation']['path']);
         self::assertSame(200, $data['status']);
         self::assertTrue($data['success']);
         self::assertSame([], $data['errors']);

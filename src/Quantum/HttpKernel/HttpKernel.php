@@ -92,6 +92,8 @@ final class HttpKernel implements HttpKernelInterface
 
     protected function runMiddleware(mixed $middleware, Request $request, Closure $next): Response
     {
+        $this->bindCurrentRequest($request);
+
         if (is_string($middleware)) {
             $middleware = $this->container->get($middleware);
         }
@@ -111,9 +113,20 @@ final class HttpKernel implements HttpKernelInterface
 
     protected function dispatchResolvedRoute(Request $request, ResolvedRoute $resolved): Response
     {
+        $this->bindCurrentRequest($request);
         $result = $this->controllerDispatcher()->dispatchResolvedRoute($resolved, $request);
 
         return $this->responses->from($result);
+    }
+
+    protected function bindCurrentRequest(Request $request): void
+    {
+        if (!method_exists($this->container, 'instance')) {
+            return;
+        }
+
+        $this->container->instance(Request::class, $request);
+        $this->container->instance('request', $request);
     }
 
     protected function exceptionHandler(): ExceptionHandlerInterface

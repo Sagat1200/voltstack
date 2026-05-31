@@ -28,6 +28,12 @@ use Quantum\SpaBridge\Contracts\SpaResponderInterface;
 use Quantum\SpaBridge\Http\Middleware\HandleSpaRequests;
 use Quantum\SpaBridge\Http\SpaResponseFactory;
 use Quantum\SpaBridge\Http\SpaResponseNormalizer;
+use Quantum\SpaBridge\Metadata\Contracts\NavigationMetadataFactoryInterface;
+use Quantum\SpaBridge\Metadata\NavigationMetadataFactory;
+use Quantum\SpaBridge\Pages\Contracts\PageComponentResolverInterface;
+use Quantum\SpaBridge\Pages\Contracts\PageResolverInterface;
+use Quantum\SpaBridge\Pages\PageComponentResolver;
+use Quantum\SpaBridge\Pages\PageResolver;
 use Quantum\SpaBridge\SpaBridge;
 use Quantum\SpaBridge\SpaResponder;
 use Quantum\Validation\Contracts\ValidatorInterface;
@@ -70,15 +76,26 @@ final class Application
             $container,
         ));
         $this->container->singleton(SharedContextResolverInterface::class, SharedContextResolver::class);
+        $this->container->singleton(PageComponentResolver::class, PageComponentResolver::class);
+        $this->container->singleton(PageComponentResolverInterface::class, PageComponentResolver::class);
+        $this->container->singleton(NavigationMetadataFactory::class, NavigationMetadataFactory::class);
+        $this->container->singleton(NavigationMetadataFactoryInterface::class, NavigationMetadataFactory::class);
+        $this->container->singleton(PageResolver::class, static fn(Container $container, array $parameters = []): PageResolver => new PageResolver(
+            $container->make(PageComponentResolverInterface::class),
+            $container->make(NavigationMetadataFactoryInterface::class),
+        ));
+        $this->container->singleton(PageResolverInterface::class, PageResolver::class);
         $this->container->singleton(SpaResponder::class, static fn(Container $container, array $parameters = []): SpaResponder => new SpaResponder(
             $container->make(ResponseFactory::class),
             $container->make(SharedContextResolverInterface::class),
+            $container->make(PageResolverInterface::class),
         ));
         $this->container->singleton(SpaResponderInterface::class, SpaResponder::class);
         $this->container->singleton(SpaBridge::class, static fn(Container $container, array $parameters = []): SpaBridge => new SpaBridge(
             $container->make(SpaResponderInterface::class),
             $container->make(SharedContextRegistryInterface::class),
             $container->make(SharedContextResolverInterface::class),
+            $container->make(PageResolverInterface::class),
         ));
         $this->container->singleton(SpaBridgeInterface::class, SpaBridge::class);
         $this->container->singleton(MiddlewareRegistry::class, MiddlewareRegistry::class);
