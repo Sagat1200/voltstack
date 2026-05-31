@@ -54,7 +54,9 @@ final class SpaBridgeTest extends TestCase
         self::assertSame(422, $data['status']);
         self::assertFalse($data['success']);
         self::assertSame(['email' => ['The email field is required.']], $data['errors']);
-        self::assertSame([], $data['meta']);
+        self::assertSame('null', $data['meta']['frontend']['adapter']['name']);
+        self::assertSame('0.0.0', $data['meta']['frontend']['adapter']['version']);
+        self::assertSame([], $data['meta']['frontend']['entrypoints']);
         self::assertSame([], $data['props']);
         self::assertNull($data['component']);
         self::assertNull($data['redirect']);

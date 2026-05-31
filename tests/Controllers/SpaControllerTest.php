@@ -38,6 +38,9 @@ final class SpaControllerTest extends TestCase
         self::assertSame('main', $data['meta']['layout']);
         self::assertSame('/spa/dashboard', $data['meta']['navigation']['url']);
         self::assertSame('/spa/dashboard', $data['meta']['navigation']['path']);
+        self::assertSame('null', $data['meta']['frontend']['adapter']['name']);
+        self::assertSame('0.0.0', $data['meta']['frontend']['adapter']['version']);
+        self::assertSame([], $data['meta']['frontend']['entrypoints']);
         self::assertSame(200, $data['status']);
         self::assertTrue($data['success']);
         self::assertSame([], $data['errors']);

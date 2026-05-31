@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Quantum\SpaBridge;
 
+use Closure;
 use Quantum\Http\Response;
 use Quantum\SpaBridge\Adapters\Contracts\FrontendAdapterInterface;
 use Quantum\SpaBridge\Adapters\NullFrontendAdapter;
@@ -16,6 +17,8 @@ use Quantum\SpaBridge\Contracts\SpaBridgeInterface;
 use Quantum\SpaBridge\Contracts\SpaPageInterface;
 use Quantum\SpaBridge\Contracts\SpaPayloadInterface;
 use Quantum\SpaBridge\Contracts\SpaResponderInterface;
+use Quantum\SpaBridge\Metadata\Contracts\FrontendMetadataFactoryInterface;
+use Quantum\SpaBridge\Metadata\FrontendMetadataFactory;
 use Quantum\SpaBridge\Pages\Contracts\PageResolverInterface;
 use Quantum\SpaBridge\Pages\PageResolver;
 
@@ -24,24 +27,36 @@ final class SpaBridge implements SpaBridgeInterface
     protected SpaResponderInterface $responder;
     protected SharedContextResolverInterface $contextResolver;
     protected PageResolverInterface $pages;
-    protected FrontendAdapterInterface $adapter;
+    protected FrontendMetadataFactoryInterface $frontend;
+    protected Closure $resolveAdapter;
 
     public function __construct(
         ?SpaResponderInterface $responder = null,
         protected SharedContextRegistryInterface $contextRegistry = new SharedContextRegistry(),
         ?SharedContextResolverInterface $contextResolver = null,
         ?PageResolverInterface $pages = null,
-        ?FrontendAdapterInterface $adapter = null,
+        ?FrontendMetadataFactoryInterface $frontend = null,
+        FrontendAdapterInterface|Closure|null $adapter = null,
     ) {
         $this->contextResolver = $contextResolver ?? new SharedContextResolver($this->contextRegistry);
         $this->pages = $pages ?? new PageResolver();
-        $this->adapter = $adapter ?? new NullFrontendAdapter();
+        $this->frontend = $frontend ?? new FrontendMetadataFactory();
+        $this->resolveAdapter = match (true) {
+            $adapter instanceof Closure => $adapter,
+            $adapter instanceof FrontendAdapterInterface => static fn(): FrontendAdapterInterface => $adapter,
+            default => static fn(): FrontendAdapterInterface => new NullFrontendAdapter(),
+        };
         $this->responder = $responder ?? new SpaResponder(contextResolver: $this->contextResolver);
     }
 
     public function page(string $component, array $props = [], array $meta = []): SpaPageInterface
     {
-        return $this->pages->resolve($component, $props, $meta, $this->context())->toPage();
+        return $this->pages->resolve(
+            $component,
+            $props,
+            $this->frontend->make($meta, $this->adapter(), $component),
+            $this->context()
+        )->toPage();
     }
 
     public function payload(SpaPayloadInterface $payload): Response
@@ -68,6 +83,6 @@ final class SpaBridge implements SpaBridgeInterface
 
     public function adapter(): FrontendAdapterInterface
     {
-        return $this->adapter;
+        return ($this->resolveAdapter)();
     }
 }
