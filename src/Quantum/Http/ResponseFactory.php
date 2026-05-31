@@ -6,6 +6,10 @@ namespace Quantum\Http;
 
 final class ResponseFactory
 {
+    public function __construct(
+        protected $normalizer = null,
+    ) {}
+
     public function make(string $content = '', int $status = 200, array $headers = []): Response
     {
         return Response::make($content, $status, $headers);
@@ -35,6 +39,14 @@ final class ResponseFactory
     {
         if ($result instanceof Response) {
             return $result;
+        }
+
+        if (is_callable($this->normalizer)) {
+            $normalized = ($this->normalizer)($result);
+
+            if ($normalized instanceof Response) {
+                return $normalized;
+            }
         }
 
         if (is_array($result) || is_object($result)) {

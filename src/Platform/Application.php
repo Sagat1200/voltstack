@@ -25,6 +25,9 @@ use Quantum\SpaBridge\Context\SharedContextRegistry;
 use Quantum\SpaBridge\Context\SharedContextResolver;
 use Quantum\SpaBridge\Contracts\SpaBridgeInterface;
 use Quantum\SpaBridge\Contracts\SpaResponderInterface;
+use Quantum\SpaBridge\Http\Middleware\HandleSpaRequests;
+use Quantum\SpaBridge\Http\SpaResponseFactory;
+use Quantum\SpaBridge\Http\SpaResponseNormalizer;
 use Quantum\SpaBridge\SpaBridge;
 use Quantum\SpaBridge\SpaResponder;
 use Quantum\Validation\Contracts\ValidatorInterface;
@@ -53,7 +56,13 @@ final class Application
         $this->container->instance('container', $this->container);
         $this->container->instance(ProviderRepository::class, $this->providers);
         $this->container->instance('providers', $this->providers);
-        $this->container->singleton(ResponseFactory::class, ResponseFactory::class);
+        $this->container->singleton(SpaResponseFactory::class, SpaResponseFactory::class);
+        $this->container->singleton(SpaResponseNormalizer::class, static fn(Container $container, array $parameters = []): SpaResponseNormalizer => new SpaResponseNormalizer(
+            $container->make(SpaResponseFactory::class),
+        ));
+        $this->container->singleton(ResponseFactory::class, static fn(Container $container, array $parameters = []): ResponseFactory => new ResponseFactory(
+            static fn(mixed $result): ?\Quantum\Http\Response => $container->make(SpaResponseNormalizer::class)->normalize($result),
+        ));
         $this->container->singleton(SharedContextRegistry::class, SharedContextRegistry::class);
         $this->container->singleton(SharedContextRegistryInterface::class, SharedContextRegistry::class);
         $this->container->singleton(SharedContextResolver::class, static fn(Container $container, array $parameters = []): SharedContextResolver => new SharedContextResolver(
@@ -73,6 +82,7 @@ final class Application
         ));
         $this->container->singleton(SpaBridgeInterface::class, SpaBridge::class);
         $this->container->singleton(MiddlewareRegistry::class, MiddlewareRegistry::class);
+        $this->container->singleton(HandleSpaRequests::class, HandleSpaRequests::class);
         $this->container->singleton(RouteBindingRegistry::class, RouteBindingRegistry::class);
         $this->container->singleton(Validator::class, Validator::class);
         $this->container->singleton(ValidatorInterface::class, Validator::class);
@@ -90,6 +100,8 @@ final class Application
         ));
         $this->container->singleton(ExceptionHandler::class, static fn(Container $container, array $parameters = []): ExceptionHandler => new ExceptionHandler(
             $container->make(ResponseFactory::class),
+            $container->make(SpaResponseFactory::class),
+            $container->make(SharedContextResolverInterface::class),
         ));
         $this->container->singleton(ExceptionHandlerInterface::class, ExceptionHandler::class);
         $this->container->singleton(
@@ -117,6 +129,7 @@ final class Application
         $this->container->instance('controller.dispatcher', $this->container->make(ControllerDispatcher::class));
         $this->container->instance('validator', $this->container->make(ValidatorInterface::class));
         $this->container->instance('actions', $this->container->make(ActionDispatcher::class));
+        $this->middleware()->alias('spa', HandleSpaRequests::class);
     }
 
     public function setBasePath(string $basePath): static
