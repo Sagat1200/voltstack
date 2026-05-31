@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Quantum\SpaBridge;
 
 use Quantum\Http\Response;
+use Quantum\SpaBridge\Adapters\Contracts\FrontendAdapterInterface;
+use Quantum\SpaBridge\Adapters\NullFrontendAdapter;
 use Quantum\SpaBridge\Context\Contracts\SharedContextProviderInterface;
 use Quantum\SpaBridge\Context\Contracts\SharedContextRegistryInterface;
 use Quantum\SpaBridge\Context\Contracts\SharedContextResolverInterface;
@@ -22,15 +24,18 @@ final class SpaBridge implements SpaBridgeInterface
     protected SpaResponderInterface $responder;
     protected SharedContextResolverInterface $contextResolver;
     protected PageResolverInterface $pages;
+    protected FrontendAdapterInterface $adapter;
 
     public function __construct(
         ?SpaResponderInterface $responder = null,
         protected SharedContextRegistryInterface $contextRegistry = new SharedContextRegistry(),
         ?SharedContextResolverInterface $contextResolver = null,
         ?PageResolverInterface $pages = null,
+        ?FrontendAdapterInterface $adapter = null,
     ) {
         $this->contextResolver = $contextResolver ?? new SharedContextResolver($this->contextRegistry);
         $this->pages = $pages ?? new PageResolver();
+        $this->adapter = $adapter ?? new NullFrontendAdapter();
         $this->responder = $responder ?? new SpaResponder(contextResolver: $this->contextResolver);
     }
 
@@ -59,5 +64,10 @@ final class SpaBridge implements SpaBridgeInterface
     public function context(): array
     {
         return $this->contextResolver->resolve();
+    }
+
+    public function adapter(): FrontendAdapterInterface
+    {
+        return $this->adapter;
     }
 }

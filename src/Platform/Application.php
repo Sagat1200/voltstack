@@ -18,6 +18,12 @@ use Quantum\HttpKernel\HttpKernel;
 use Quantum\HttpKernel\MiddlewareRegistry;
 use Quantum\Routing\RouteBindingRegistry;
 use Quantum\Routing\Router;
+use Quantum\SpaBridge\Adapters\ArrayAssetManifest;
+use Quantum\SpaBridge\Adapters\ArrayComponentResolver;
+use Quantum\SpaBridge\Adapters\Contracts\AssetManifestInterface;
+use Quantum\SpaBridge\Adapters\Contracts\ComponentResolverInterface;
+use Quantum\SpaBridge\Adapters\Contracts\FrontendAdapterInterface;
+use Quantum\SpaBridge\Adapters\NullFrontendAdapter;
 use Quantum\SpaBridge\Context\Contracts\SharedContextProviderInterface;
 use Quantum\SpaBridge\Context\Contracts\SharedContextRegistryInterface;
 use Quantum\SpaBridge\Context\Contracts\SharedContextResolverInterface;
@@ -76,6 +82,16 @@ final class Application
             $container,
         ));
         $this->container->singleton(SharedContextResolverInterface::class, SharedContextResolver::class);
+        $this->container->singleton(ArrayAssetManifest::class, static fn(Container $container, array $parameters = []): ArrayAssetManifest => new ArrayAssetManifest());
+        $this->container->singleton(AssetManifestInterface::class, ArrayAssetManifest::class);
+        $this->container->singleton(ArrayComponentResolver::class, static fn(Container $container, array $parameters = []): ArrayComponentResolver => new ArrayComponentResolver(
+            manifest: $container->make(AssetManifestInterface::class),
+        ));
+        $this->container->singleton(ComponentResolverInterface::class, ArrayComponentResolver::class);
+        $this->container->singleton(NullFrontendAdapter::class, static fn(Container $container, array $parameters = []): NullFrontendAdapter => new NullFrontendAdapter(
+            $container->make(ComponentResolverInterface::class),
+        ));
+        $this->container->singleton(FrontendAdapterInterface::class, NullFrontendAdapter::class);
         $this->container->singleton(PageComponentResolver::class, PageComponentResolver::class);
         $this->container->singleton(PageComponentResolverInterface::class, PageComponentResolver::class);
         $this->container->singleton(NavigationMetadataFactory::class, NavigationMetadataFactory::class);
@@ -96,6 +112,7 @@ final class Application
             $container->make(SharedContextRegistryInterface::class),
             $container->make(SharedContextResolverInterface::class),
             $container->make(PageResolverInterface::class),
+            $container->make(FrontendAdapterInterface::class),
         ));
         $this->container->singleton(SpaBridgeInterface::class, SpaBridge::class);
         $this->container->singleton(MiddlewareRegistry::class, MiddlewareRegistry::class);
@@ -139,6 +156,8 @@ final class Application
         $this->container->instance('router', $this->container->make(Router::class));
         $this->container->instance('kernel', $this->container->make(HttpKernel::class));
         $this->container->instance('spa', $this->container->make(SpaBridgeInterface::class));
+        $this->container->instance('spa.frontend.adapter', $this->container->make(FrontendAdapterInterface::class));
+        $this->container->instance('spa.asset.manifest', $this->container->make(AssetManifestInterface::class));
         $this->container->instance('response.factory', $this->container->make(ResponseFactory::class));
         $this->container->instance('exception.handler', $this->container->make(ExceptionHandlerInterface::class));
         $this->container->instance('middleware.registry', $this->container->make(MiddlewareRegistry::class));
@@ -216,6 +235,11 @@ final class Application
         $this->spa()->share($provider);
 
         return $this;
+    }
+
+    public function spaAdapter(): FrontendAdapterInterface
+    {
+        return $this->container->make(FrontendAdapterInterface::class);
     }
 
     public function responses(): ResponseFactory

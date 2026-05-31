@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quantum\SpaBridge\Contracts;
 
 use Quantum\Http\Response;
+use Quantum\SpaBridge\Adapters\Contracts\FrontendAdapterInterface;
 use Quantum\SpaBridge\Context\Contracts\SharedContextProviderInterface;
 
 interface SpaBridgeInterface
@@ -18,4 +19,6 @@ interface SpaBridgeInterface
     public function share(string|SharedContextProviderInterface $provider): static;
 
     public function context(): array;
+
+    public function adapter(): FrontendAdapterInterface;
 }
