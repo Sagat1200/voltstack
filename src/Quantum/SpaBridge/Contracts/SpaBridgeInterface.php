@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quantum\SpaBridge\Contracts;
 
 use Quantum\Http\Response;
+use Quantum\SpaBridge\Context\Contracts\SharedContextProviderInterface;
 
 interface SpaBridgeInterface
 {
@@ -13,4 +14,8 @@ interface SpaBridgeInterface
     public function payload(SpaPayloadInterface $payload): Response;
 
     public function responder(): SpaResponderInterface;
+
+    public function share(string|SharedContextProviderInterface $provider): static;
+
+    public function context(): array;
 }

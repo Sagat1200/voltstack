@@ -14,8 +14,8 @@ final class SpaPage implements SpaPageInterface
         protected string $component,
         protected array $props = [],
         protected array $meta = [],
-    ) {
-    }
+        protected array $context = [],
+    ) {}
 
     public function component(): string
     {
@@ -34,6 +34,6 @@ final class SpaPage implements SpaPageInterface
 
     public function toPayload(): SpaPayloadInterface
     {
-        return new SpaPagePayload($this->component, $this->props, $this->meta);
+        return new SpaPagePayload($this->component, $this->props, $this->meta, context: $this->context);
     }
 }

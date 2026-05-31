@@ -6,6 +6,7 @@ namespace VoltStack\Framework\Tests\Controllers;
 
 use Quantum\Controllers\Controller;
 use Quantum\Http\Request;
+use Quantum\SpaBridge\Context\Contracts\SharedContextProviderInterface;
 use Quantum\SpaBridge\Contracts\SpaBridgeInterface;
 use Quantum\SpaBridge\Http\Concerns\InteractsWithSpaResponses;
 use VoltStack\Framework\Tests\TestCase;
@@ -22,6 +23,7 @@ final class SpaControllerTest extends TestCase
     public function test_controller_can_return_a_spa_page_response_using_the_trait(): void
     {
         $app = $this->createApplication();
+        $app->shareSpaContext(SpaControllerSharedContextProvider::class);
         $app->router()->get('/spa/dashboard', SpaDashboardController::class . '@show');
 
         $response = $app->kernel()->handle(Request::create('GET', '/spa/dashboard'));
@@ -38,8 +40,37 @@ final class SpaControllerTest extends TestCase
         self::assertTrue($data['success']);
         self::assertSame([], $data['errors']);
         self::assertNull($data['redirect']);
+        self::assertSame([
+            'auth' => [
+                'user' => [
+                    'id' => 10,
+                    'name' => 'Volt User',
+                ],
+            ],
+            'locale' => [
+                'current' => 'es',
+            ],
+        ], $data['context']);
         self::assertIsString($data['request_id']);
         self::assertIsInt($data['timestamp']);
+    }
+}
+
+final class SpaControllerSharedContextProvider implements SharedContextProviderInterface
+{
+    public function provide(): array
+    {
+        return [
+            'auth' => [
+                'user' => [
+                    'id' => 10,
+                    'name' => 'Volt User',
+                ],
+            ],
+            'locale' => [
+                'current' => 'es',
+            ],
+        ];
     }
 }
 

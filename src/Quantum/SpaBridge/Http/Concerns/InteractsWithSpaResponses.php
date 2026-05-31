@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Quantum\SpaBridge\Http\Concerns;
 
 use Quantum\Http\Response;
+use Quantum\SpaBridge\Contracts\SpaResponderInterface;
 use Quantum\SpaBridge\SpaResponder;
 
 trait InteractsWithSpaResponses
@@ -36,6 +37,15 @@ trait InteractsWithSpaResponses
 
     protected function spaResponder(): SpaResponder
     {
+        if (function_exists('app')) {
+            /** @var SpaResponderInterface $responder */
+            $responder = app(SpaResponderInterface::class);
+
+            if ($responder instanceof SpaResponder) {
+                return $responder;
+            }
+        }
+
         return new SpaResponder($this->responses);
     }
 }

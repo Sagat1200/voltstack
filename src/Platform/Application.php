@@ -9,6 +9,7 @@ use Quantum\Bootstrap\BootstrapManager;
 use Quantum\Bootstrap\ProviderRepository;
 use Quantum\Config\ConfigRepository;
 use Quantum\Container\Container;
+use Quantum\Container\Contracts\ContainerInterface;
 use Quantum\Controllers\ControllerDispatcher;
 use Quantum\Exceptions\Contracts\ExceptionHandlerInterface;
 use Quantum\Exceptions\ExceptionHandler;
@@ -17,6 +18,11 @@ use Quantum\HttpKernel\HttpKernel;
 use Quantum\HttpKernel\MiddlewareRegistry;
 use Quantum\Routing\RouteBindingRegistry;
 use Quantum\Routing\Router;
+use Quantum\SpaBridge\Context\Contracts\SharedContextProviderInterface;
+use Quantum\SpaBridge\Context\Contracts\SharedContextRegistryInterface;
+use Quantum\SpaBridge\Context\Contracts\SharedContextResolverInterface;
+use Quantum\SpaBridge\Context\SharedContextRegistry;
+use Quantum\SpaBridge\Context\SharedContextResolver;
 use Quantum\SpaBridge\Contracts\SpaBridgeInterface;
 use Quantum\SpaBridge\Contracts\SpaResponderInterface;
 use Quantum\SpaBridge\SpaBridge;
@@ -43,16 +49,27 @@ final class Application
         $this->container->instance(self::class, $this);
         $this->container->instance('app', $this);
         $this->container->instance(Container::class, $this->container);
+        $this->container->instance(ContainerInterface::class, $this->container);
         $this->container->instance('container', $this->container);
         $this->container->instance(ProviderRepository::class, $this->providers);
         $this->container->instance('providers', $this->providers);
         $this->container->singleton(ResponseFactory::class, ResponseFactory::class);
+        $this->container->singleton(SharedContextRegistry::class, SharedContextRegistry::class);
+        $this->container->singleton(SharedContextRegistryInterface::class, SharedContextRegistry::class);
+        $this->container->singleton(SharedContextResolver::class, static fn(Container $container, array $parameters = []): SharedContextResolver => new SharedContextResolver(
+            $container->make(SharedContextRegistryInterface::class),
+            $container,
+        ));
+        $this->container->singleton(SharedContextResolverInterface::class, SharedContextResolver::class);
         $this->container->singleton(SpaResponder::class, static fn(Container $container, array $parameters = []): SpaResponder => new SpaResponder(
             $container->make(ResponseFactory::class),
+            $container->make(SharedContextResolverInterface::class),
         ));
         $this->container->singleton(SpaResponderInterface::class, SpaResponder::class);
         $this->container->singleton(SpaBridge::class, static fn(Container $container, array $parameters = []): SpaBridge => new SpaBridge(
             $container->make(SpaResponderInterface::class),
+            $container->make(SharedContextRegistryInterface::class),
+            $container->make(SharedContextResolverInterface::class),
         ));
         $this->container->singleton(SpaBridgeInterface::class, SpaBridge::class);
         $this->container->singleton(MiddlewareRegistry::class, MiddlewareRegistry::class);
@@ -162,6 +179,13 @@ final class Application
     public function spa(): SpaBridgeInterface
     {
         return $this->container->make(SpaBridgeInterface::class);
+    }
+
+    public function shareSpaContext(string|SharedContextProviderInterface $provider): static
+    {
+        $this->spa()->share($provider);
+
+        return $this;
     }
 
     public function responses(): ResponseFactory
