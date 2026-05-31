@@ -17,6 +17,10 @@ use Quantum\HttpKernel\HttpKernel;
 use Quantum\HttpKernel\MiddlewareRegistry;
 use Quantum\Routing\RouteBindingRegistry;
 use Quantum\Routing\Router;
+use Quantum\SpaBridge\Contracts\SpaBridgeInterface;
+use Quantum\SpaBridge\Contracts\SpaResponderInterface;
+use Quantum\SpaBridge\SpaBridge;
+use Quantum\SpaBridge\SpaResponder;
 use Quantum\Validation\Contracts\ValidatorInterface;
 use Quantum\Validation\Validator;
 
@@ -43,6 +47,14 @@ final class Application
         $this->container->instance(ProviderRepository::class, $this->providers);
         $this->container->instance('providers', $this->providers);
         $this->container->singleton(ResponseFactory::class, ResponseFactory::class);
+        $this->container->singleton(SpaResponder::class, static fn(Container $container, array $parameters = []): SpaResponder => new SpaResponder(
+            $container->make(ResponseFactory::class),
+        ));
+        $this->container->singleton(SpaResponderInterface::class, SpaResponder::class);
+        $this->container->singleton(SpaBridge::class, static fn(Container $container, array $parameters = []): SpaBridge => new SpaBridge(
+            $container->make(SpaResponderInterface::class),
+        ));
+        $this->container->singleton(SpaBridgeInterface::class, SpaBridge::class);
         $this->container->singleton(MiddlewareRegistry::class, MiddlewareRegistry::class);
         $this->container->singleton(RouteBindingRegistry::class, RouteBindingRegistry::class);
         $this->container->singleton(Validator::class, Validator::class);
@@ -80,6 +92,7 @@ final class Application
         );
         $this->container->instance('router', $this->container->make(Router::class));
         $this->container->instance('kernel', $this->container->make(HttpKernel::class));
+        $this->container->instance('spa', $this->container->make(SpaBridgeInterface::class));
         $this->container->instance('response.factory', $this->container->make(ResponseFactory::class));
         $this->container->instance('exception.handler', $this->container->make(ExceptionHandlerInterface::class));
         $this->container->instance('middleware.registry', $this->container->make(MiddlewareRegistry::class));
@@ -144,6 +157,11 @@ final class Application
     public function kernel(): HttpKernel
     {
         return $this->container->make(HttpKernel::class);
+    }
+
+    public function spa(): SpaBridgeInterface
+    {
+        return $this->container->make(SpaBridgeInterface::class);
     }
 
     public function responses(): ResponseFactory

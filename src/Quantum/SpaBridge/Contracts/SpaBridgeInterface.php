@@ -1,0 +1,16 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Quantum\SpaBridge\Contracts;
+
+use Quantum\Http\Response;
+
+interface SpaBridgeInterface
+{
+    public function page(string $component, array $props = [], array $meta = []): SpaPageInterface;
+
+    public function payload(SpaPayloadInterface $payload): Response;
+
+    public function responder(): SpaResponderInterface;
+}
